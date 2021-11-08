@@ -1,0 +1,21 @@
+x create new folder with all the pieces
+x move deploy script and modify the psd1 files
+x write the update logic
+x write the install logic
+#Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+# Install command
+Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression (Get-Content '\\abelnr1.corp.aspentech.com\AspenPackageRepo\wave\installWave.ps1' -Raw)
+x split user and built in templates
+x add support for local/web packages
+x add support to list wave packages (local and web)
+x add support for crowd strike install by default
+x get template info
+
+remplace BITS with robocopy -ScriptBlock ${Function:MyFunction} -ArgumentList '5','IPV4'
+    Only for transfers on local machine
+    need to fix over remote session, progress bar needs to be in local terminal
+add support for aspen media
+add support for winget
+add support for chocolatey
+handle machine with name on the domain.
+shrink image with ffu and rehydrate with windows pe and batch run on boot.
