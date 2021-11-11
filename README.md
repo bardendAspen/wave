@@ -1,8 +1,10 @@
-# Welcome to the wave repository
-Wave automates virtual environments
-This repository contains the source code for wave.
-
-> The project is in beta. We welcome all feedback, and that feedback might lead to big (maybe even breaking) changes.
+# wave
+### Wave automates virtual environments
+````
+"The Future is now. The future is wave."           
+    -Oyindasola Sodeinde
+````
+> The project is in beta. Feedback is welcome, and that feedback might lead to big (maybe even breaking) changes.
 
 ## Installing wave
 
