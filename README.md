@@ -1,5 +1,5 @@
 # wave
-### Wave automates virtual environments
+Wave automates virtual environments
 ````
 "The Future is now. The future is wave."           
     -Oyindasola Sodeinde
