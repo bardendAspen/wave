@@ -35,7 +35,7 @@ wave deploy <name> [<template>]
 ````
 `<name>` is a requreied parameter that specifies the name of your new VM. For personal VM's, its best practice to prefix your name with your corp username. These machines are put on the domain and this will help avoid two users using the same name for a machine. For example my corp username is 'bardend' so a good VM name for me to use would be 'bardend-VM01'.
 
-`[<template>]` is an optional parameter used to specify the name of a template file. Template files are used to specify things like VM specs, operating system, and packages. If no template name is given the default template will be used. For this example we will emit this parameter and use the default template which is a Windows 10 base image. For more information on changing the default template as well as creating and using them, see the templates section.
+`[<template>]` is an optional parameter used to specify the name of a template file. Template files are used to specify things like VM specs, operating system, and packages. If no template name is given the default template will be used. For this example we will omit this parameter and use the default template which is a Windows 10 base image. For more information on changing the default template as well as creating and using them, see the templates section (pending).
 
 >Please note that the vm name must adhere to rules for netbios names. Standard names may contain letters (a-z, A-Z), numbers (0-9), and hyphens (-), but no spaces, underscores ( _ ), or periods (.). The name may not consist entirely of digits, and may not be longer than 15 characters. 
 
@@ -51,7 +51,7 @@ You will be prompted to enter two sets of credentials before wave begins buildin
 >````
 >This will store the credentials and wave will no longer prompt you for them every time
 
-Wave should now begin building your new VM, once ready wave will notify yuo it is done in the console and you will be free to log on to the computer using your corp account.
+Wave should now begin building your new VM. Once ready, wave will notify you it is done in the console and you are free to log on to the computer using your corp account.
 
 Fore more information on the deploy command, run
 ````
