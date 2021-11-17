@@ -109,6 +109,16 @@ $deployCMD = {
         $adminCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "Admin",$admin
         $corpCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "$($env:USERDOMAIN)\$($env:USERNAME)",$corpUser
     }
+
+    # Check for update
+    $updateMessage = waveUpdateIsAvailable
+    if ($updateMessage) {
+        ""
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        "  wave update available. Please update wave"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+
     "$(waveHeader)"
     "Gathering information and preparing the deployment - $((Get-Date).ToString())"
     # Get the latest image
@@ -410,6 +420,13 @@ $deployCMD = {
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Final Restart' -PercentComplete ((100/$totalSteps)*7)
     Restart-VM -VMName $vmName -Force -Wait
     "$($vmName).$($waveUserConfig.domain).aspentech.com is ready. Have fun."
+    # Update message
+    if ($updateMessage) {
+        ""
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        "  wave update available. Please update wave"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
 }
 function templatesCMD {
     # Parameter help description
