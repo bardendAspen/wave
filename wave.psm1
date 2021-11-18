@@ -14,7 +14,7 @@ $userAdminCredPath = Join-Path $userFilesPath "admin.ps1.crd"
 $userCorpCredPath = Join-Path $userFilesPath "corp.ps1.crd"
 $userTemplates = Get-ChildItem (Join-Path $userTemplatesPath "*.psd1")
 $waveTemplates = Get-ChildItem (Join-Path $waveTemplatesPath "*.psd1")
-$allTemplates = $userTemplates.BaseName + $waveTemplates.BaseName
+$allTemplates = @($userTemplates.BaseName) + @($waveTemplates.BaseName)
 
 # Version string
 function versionCMD {
