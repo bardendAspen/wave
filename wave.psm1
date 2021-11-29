@@ -62,6 +62,15 @@ $deployCMD = {
         [string]$template=$waveUserConfig.DefaultTemplate
     )
 
+    # Check for update
+    $updateMessage = waveUpdateIsAvailable
+    if ($updateMessage) {
+        ""
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        "  wave update available. Please update wave"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+    
     # Check for vm name
     if (!$vmName) {
         deployHelp
@@ -108,15 +117,6 @@ $deployCMD = {
         # Create credential objects
         $adminCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "Admin",$admin
         $corpCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "$($env:USERDOMAIN)\$($env:USERNAME)",$corpUser
-    }
-
-    # Check for update
-    $updateMessage = waveUpdateIsAvailable
-    if ($updateMessage) {
-        ""
-        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        "  wave update available. Please update wave"
-        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     }
 
     "$(waveHeader)"
