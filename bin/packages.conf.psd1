@@ -81,12 +81,16 @@
                 path = "AspenPackageRepo\LiveImages\LI-W11"
                 name = "W11Template"
             }
+            WindowsServer2019 = @{
+                path = "AspenPackageRepo\LiveImages\LI-S19"
+                name = "LI-S19"
+            }
+            WindowsServer2022= @{
+                path = "AspenPackageRepo\LiveImages\LI-S22"
+                name = "LI-S22"
+            }
             # WindowsServer2016 = @{
             #     path = "AspenPackageRepo\LiveImages\LI-S16"
-            #     name = ""
-            # }
-            # WindowsServer2019 = @{
-            #     path = "AspenPackageRepo\LiveImages\LI-S19"
             #     name = ""
             # }
         }

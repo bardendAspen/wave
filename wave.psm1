@@ -14,7 +14,7 @@ $userAdminCredPath = Join-Path $userFilesPath "admin.ps1.crd"
 $userCorpCredPath = Join-Path $userFilesPath "corp.ps1.crd"
 $userTemplates = Get-ChildItem (Join-Path $userTemplatesPath "*.psd1")
 $waveTemplates = Get-ChildItem (Join-Path $waveTemplatesPath "*.psd1")
-$allTemplates = $userTemplates.BaseName + $waveTemplates.BaseName
+$allTemplates = @($userTemplates.BaseName) + @($waveTemplates.BaseName)
 
 # Version string
 function versionCMD {
@@ -62,6 +62,15 @@ $deployCMD = {
         [string]$template=$waveUserConfig.DefaultTemplate
     )
 
+    # Check for update
+    $updateMessage = waveUpdateIsAvailable
+    if ($updateMessage) {
+        ""
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        "  wave update available. Please update wave"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
+    
     # Check for vm name
     if (!$vmName) {
         deployHelp
@@ -109,6 +118,7 @@ $deployCMD = {
         $adminCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "Admin",$admin
         $corpCred = New-Object -typename System.Management.Automation.PSCredential -argumentlist "$($env:USERDOMAIN)\$($env:USERNAME)",$corpUser
     }
+
     "$(waveHeader)"
     "Gathering information and preparing the deployment - $((Get-Date).ToString())"
     # Get the latest image
@@ -410,6 +420,13 @@ $deployCMD = {
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Final Restart' -PercentComplete ((100/$totalSteps)*7)
     Restart-VM -VMName $vmName -Force -Wait
     "$($vmName).$($waveUserConfig.domain).aspentech.com is ready. Have fun."
+    # Update message
+    if ($updateMessage) {
+        ""
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        "  wave update available. Please update wave"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    }
 }
 function templatesCMD {
     # Parameter help description
