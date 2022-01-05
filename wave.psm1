@@ -420,8 +420,10 @@ $deployCMD = {
     
     # Install Aspen Software
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Installing Aspen Software' -PercentComplete ((100/$totalSteps)*6)
-    foreach ($AspenMediaConfig in $waveTemplate.softwarePackages.aspenMedia) {
-        Install-Aspen -AspenMediaConfig $AspenMediaConfig -Session $Session -ParentId 0 -Id 1
+    if (($waveTemplate.softwarePackages.aspenMedia.GetType()).IsArray) {
+        foreach ($AspenMediaConfig in $waveTemplate.softwarePackages.aspenMedia) {
+            Install-Aspen -AspenMediaConfig $AspenMediaConfig -Session $Session -ParentId 0 -Id 1
+        }
     }
     Remove-PSSession $session
 
