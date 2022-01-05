@@ -100,8 +100,17 @@
     AspenMedia = @{
         hosts = @{
             bedford = "hqazrndfs01.corp.aspentech.com"
-            mexico = "leonk1.corp.aspentech.com"
+            mexico = "boyerb1.corp.aspentech.com"
         }
-        path = "upload$" 
+        LicenseServer = @{
+            bedford = "hqslmtest1.qae.aspentech.com"
+            mexico = "HOUSLMTEST.qae.aspentech.com"
+        }
+        "V14.0.ENG.Local" = @{
+            path = "upload$\aspenONEV14.0\AES\Current\X64"
+            AtRunUnattended = "Aspen_V14_ENG\Tools\AtRunUnattended.exe"
+            xmlDirectoryPath = "AspenPackageRepo\AspenInstallXML"
+            xmlFile = "V14.0.ENG.Local.xml"
+        }
     }
 }

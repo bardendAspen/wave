@@ -162,6 +162,7 @@ $deployCMD = {
     " Switch............$($switch)"
     " VM Storage........$($vmPath)"
     " Packages..........$($totalPackages)"
+    " Aspen Media.......$($waveTemplate.softwarePackages.aspenMedia.Count)"
     ""
 
     ### Begin building the vm
@@ -326,7 +327,11 @@ $deployCMD = {
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Adding Current User' -PercentComplete ((100/$totalSteps)*4)
     $member = "$($env:USERDOMAIN)\$($env:USERNAME)"
     $session = New-PSSession -VMName $vmName -Credential $vmAdminCred
-    Invoke-Command -Session $session -ScriptBlock {Add-LocalGroupMember -Group "Administrators" -Member $Using:member}
+    # Add current user and qahee for ABE install
+    Invoke-Command -Session $session -ScriptBlock {
+        Add-LocalGroupMember -Group "Administrators" -Member $Using:member
+        Add-LocalGroupMember -Group "Administrators" -Member corp\qahee
+    }
     Remove-PSSession $session
 
     # # Install packages
@@ -412,10 +417,13 @@ $deployCMD = {
     #     $packNum ++
     # }
     Write-Progress -Id 1 -ParentId 0 -Activity "Installing Package $($packNum)/$($totalPackages)" -Status "Complete" -Completed
-    Remove-PSSession $session
     
     # Install Aspen Software
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Installing Aspen Software' -PercentComplete ((100/$totalSteps)*6)
+    foreach ($AspenMediaConfig in $waveTemplate.softwarePackages.aspenMedia) {
+        Install-Aspen -AspenMediaConfig $AspenMediaConfig -Session $Session -ParentId 0 -Id 1
+    }
+    Remove-PSSession $session
 
     Write-Progress -Id 0 -Activity "Building $($vmName)" -Status 'Final Restart' -PercentComplete ((100/$totalSteps)*7)
     Restart-VM -VMName $vmName -Force -Wait
@@ -667,37 +675,59 @@ function Start-RoboCopy {
         $SourceDirectory,
         [Parameter(Mandatory=$true)]
         $DestinationDirectory,
-        [Parameter(Mandatory=$true)]
+        $Session,
         $FileName,
         $ParentId = 0,
         $Id = $ParentId + 1
     )
-    
-    $tempOutFile = Join-Path $env:TEMP "roboProgress.txt"
-    $jobInfo = Start-Job -ScriptBlock {robocopy $Using:SourceDirectory $Using:DestinationDirectory $Using:FileName /NJS /NJH > $Using:tempOutFile}
-    Start-Sleep -Milliseconds 500
-    $idx = 0
-    #$wheel = "||||||||////////--------\\\\\\\\"
-    $wheel = "|/-\"
-    $wheelCount = $wheel.ToCharArray().Count
-    while ($true) {
-        if (Test-Path $tempOutFile) {
-            if (Get-Content $tempOutFile -Tail 1) {
-                if ((Get-Content $tempOutFile -Tail 1).Contains("%")) {
-                    break
-                }
-            }
+
+    $RoboBlockCMD = {
+        param ($SourceDirectory, $DestinationDirectory, $FileName)
+        robocopy $SourceDirectory $DestinationDirectory $FileName /NJS /NJH
+    }
+
+    $ProgressBarCMD = {
+        param ($RoboJob,$SourceDirectory,$FileName,$Id,$ParentId)
+        $wheel = "|/-\"
+        $wheelCount = $wheel.Length
+        $idx = 0
+        $percentComplete = 0
+        if ($FileName) {
+            $StatusMSG = $FileName
+        } else {
+            $StatusMSG = $SourceDirectory
         }
+    
+        while ($RoboJob.State -ne 'Completed') {
+            # Get job output
+            $RoboJobOut = Receive-Job -Job $RoboJob
+            # Check for '%'
+            if ($null -ne $RoboJobOut) {
+                if ($RoboJobOut[-1].Contains("%")) {
+                    # Update $percentComplete
+                    $percentComplete = $RoboJobOut[-1].Split('%')[0].Trim()
+                } 
+            }
+            # Update progress bar
+            Write-Progress -Activity "Downloading [$($wheel[$idx%$wheelCount])]" -Status $StatusMSG -PercentComplete $percentComplete -Id $Id -ParentId $ParentId
+            # Update wheel count
+            $idx++
+            # Sleep for a bit
+            Start-Sleep -Milliseconds 250
+        }
+        Write-Progress -Activity "Finished" -Status $StatusMSG -Completed -Id $Id -ParentId $ParentId
+        $RoboJob | Remove-Job
     }
-    while ($jobInfo.State -ne 'Completed') {
-        $percentComplete = (Get-Content $tempOutFile -Tail 1).Split('%')[0].Trim()
-        Write-Progress -Activity "Downloading [$($wheel[$idx%$wheelCount])]" -Status $FileName -PercentComplete $percentComplete -Id $Id -ParentId $ParentId
-        $idx++
-        Start-Sleep -Milliseconds 250
+
+    # Start Copy
+    $RoboBlockARG = @($SourceDirectory, $DestinationDirectory, $FileName)
+    if ($Session) {
+        $RoboJob = Invoke-Command -Session $Session -ArgumentList $RoboBlockARG -ScriptBlock $RoboBlockCMD -AsJob
+    } else {
+        $RoboJob = Start-Job -Name "Robo" -ArgumentList $RoboBlockARG -ScriptBlock $RoboBlockCMD
     }
-    Write-Progress -Activity "Finished" -Status $FileName -Completed -Id $Id -ParentId $ParentId
-    $jobInfo | Remove-Job
-    Remove-Item $tempOutFile
+    $ProgressBarARG = @($RoboJob,$SourceDirectory,$FileName,$Id,$ParentId)
+    Invoke-Command -ScriptBlock $ProgressBarCMD -ArgumentList $ProgressBarARG
 }
 function Get-DomainController {
     param (
@@ -722,4 +752,119 @@ function Get-DomainController {
     $netConnectionResults = $domainControllers[$domainName] | ForEach-Object {Test-NetConnection $_} | Select-Object -Property ComputerName,@{N="RoundTripTime";E={$_.PingReplyDetails.RoundtripTime}},@{N="Status";E={$_.PingReplyDetails.Status}}
     $sortedList = $netConnectionResults | Sort-Object -Property RoundtripTime | Where-Object {$_.Status -eq "Success"}
     return $sortedList[0].ComputerName
+}
+function Install-Aspen {
+    param (
+        $AspenMediaConfig,
+        $Session,
+        $ParentId = 0,
+        $Id = $ParentId + 1
+    )
+
+    $AspenInstallCMD = {
+        param ($InstallLogFile,$MediaISO,$InstallXML,$AtRunUnattendedRelative,$LicenseServer)
+        
+        # Mount iso and save info
+        $discInfo = (Mount-DiskImage -ImagePath $MediaISO -PassThru | Get-Volume)
+        
+        # Define path to install exe
+        $AtRunUnattended = Join-Path "$($discInfo.DriveLetter):\" $AtRunUnattendedRelative
+        
+        # Check mount point in config 
+        If (!($discInfo.DriveLetter -eq "E")) {
+            $mount = "$($discInfo.DriveLetter):\"
+            (Get-Content $InstallXML).Replace('E:\', $mount) | Set-Content $InstallXML
+        }
+        
+        # Update license server name 
+        (Get-Content $InstallXML).Replace('hqslmtest1.qae.aspentech.com', $LicenseServer) | Set-Content $InstallXML
+
+        # Start install process and handle object
+        $installProc = Start-Process -FilePath $AtRunUnattended -ArgumentList "`"$($InstallXML)`" /S /noreboot logfile=`"$($InstallLogFile)`" altsource=`".`"" -PassThru
+        
+        # Pause to wait for logfile
+        while ($true) {
+            Start-Sleep -Milliseconds 250
+            if (Test-Path $InstallLogFile) {
+                $InstallLogContents = Get-Content $InstallLogFile
+                if ($null -ne $InstallLogContents) {
+                    break
+                }
+            }
+        }
+
+        # Redirect log file to standard out via get content
+        $LogStartLine = 0
+        while (!$installProc.HasExited) {
+            # Get the log contents
+            $InstallLogContents = Get-Content $InstallLogFile
+            # Print new lines to console
+            $InstallLogContents[$LogStartLine..$InstallLogContents.Length]
+            # Update start line
+            $LogStartLine = $InstallLogContents.Length
+            Start-Sleep -Milliseconds 250
+        }
+    }
+
+    $ProgressBarCMD = {
+        param ($InstallJob,$InstallXMLContent,$InstallLogFile,$Id,$ParentId)
+        $wheel = "|/-\"
+        $wheelCount = $wheel.Length
+        $idx = 0
+        $percentComplete = 0
+
+        # Get the total products
+        $TotalProducts = ($InstallXMLContent | Select-String "PRODUCT" -CaseSensitive).Count
+
+        while ((Receive-Job -Job $InstallJob -Keep | Select-String -Pattern "PRODUCT" -CaseSensitive).Count -le $TotalProducts) {
+            Write-Progress -Activity "Installing [$($wheel[$idx%$wheelCount])]" -Status "Preparing Media..." -PercentComplete $percentComplete -Id $Id -ParentId $ParentId
+            Start-Sleep -Milliseconds 250
+            $idx++
+        }
+
+        while ($InstallJob.State -ne 'Completed') {
+            # Get job output
+            $InstallJobOut = Receive-Job -Job $InstallJob -Keep
+
+            # Parse the job output
+            $InstallJobOutArray = $InstallJobOut | Select-String -Pattern "PRODUCT" -CaseSensitive
+            $InstalledProducts = $InstallJobOutArray.Count - $TotalProducts - 1
+            $ProductBeingInstalled = $InstallJobOutArray[$InstalledProducts].Line.Split('=')[1]
+            $percentComplete = ($InstalledProducts/$TotalProducts)*100
+            
+            # Update progress bar
+            Write-Progress -Activity "Installing [$($wheel[$idx%$wheelCount])]" -Status "($($InstalledProducts+1)/$TotalProducts) $ProductBeingInstalled" -PercentComplete $percentComplete -Id $Id -ParentId $ParentId
+            # Update wheel count
+            $idx++
+            # Sleep for a bit
+            Start-Sleep -Milliseconds 250
+        }
+        Write-Progress -Activity "Finished" -Status "Aspen Install Complete" -Completed -Id $Id -ParentId $ParentId
+        $InstallJob | Remove-Job
+    }
+
+    $MediaDirectoryPath = Join-Path "\\$($wavePackagesConfig.AspenMedia.hosts[$waveUserConfig.location])" $wavePackagesConfig.AspenMedia[$AspenMediaConfig].path
+    $MediaIsoFileName = (Get-ChildItem -Path (Join-Path $MediaDirectoryPath "*.iso") | Sort-Object CreationTime -Descending)[0].Name
+    $xmlDirectoryPath = Join-Path "\\$($wavePackagesConfig.AspenPackageRepo.hosts[$waveUserConfig.location])" $wavePackagesConfig.AspenMedia[$AspenMediaConfig].xmlDirectoryPath
+    $xmlFileName = $wavePackagesConfig.AspenMedia[$AspenMediaConfig].xmlFile
+
+    $InstallDirectory = "C:\AspenInstall"
+    $InstallLogFile = Join-Path $InstallDirectory "mediaInstall.log"
+    $MediaISO = Join-Path $InstallDirectory $MediaIsoFileName
+    $InstallXML = Join-Path $InstallDirectory $xmlFileName
+    $AtRunUnattendedRelative = $wavePackagesConfig.AspenMedia[$AspenMediaConfig].AtRunUnattended
+    $LicenseServer = $wavePackagesConfig.AspenMedia.LicenseServer[$waveUserConfig.location]
+
+    # Create Directory for install material
+    Invoke-Command -Session $Session -ScriptBlock {New-Item -Path $Using:InstallDirectory -ItemType Directory | Out-Null}
+    # Get the media and xml
+    Start-RoboCopy -SourceDirectory $MediaDirectoryPath -DestinationDirectory $InstallDirectory -FileName $MediaIsoFileName -Session $Session
+    Start-RoboCopy -SourceDirectory $xmlDirectoryPath -DestinationDirectory $InstallDirectory -FileName $xmlFileName -Session $Session
+    $AspenInstallARG = @($InstallLogFile,$MediaISO,$InstallXML,$AtRunUnattendedRelative,$LicenseServer)
+    $InstallJob = Invoke-Command -ScriptBlock $AspenInstallCMD -ArgumentList $AspenInstallARG -Session $Session -AsJob
+
+    # Get the contents of the install xml and start progress bar
+    $InstallXMLContent = Get-Content (Join-Path $xmlDirectoryPath $xmlFileName)
+    $ProgressBarARG = @($InstallJob,$InstallXMLContent,$InstallLogFile,$Id,$ParentId)
+    Invoke-Command -ScriptBlock $ProgressBarCMD -ArgumentList $ProgressBarARG
 }
