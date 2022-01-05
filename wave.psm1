@@ -703,10 +703,12 @@ function Start-RoboCopy {
             $RoboJobOut = Receive-Job -Job $RoboJob
             # Check for '%'
             if ($null -ne $RoboJobOut) {
-                if ($RoboJobOut[-1].Contains("%")) {
-                    # Update $percentComplete
-                    $percentComplete = $RoboJobOut[-1].Split('%')[0].Trim()
-                } 
+                if ($null -ne $RoboJobOut[-1]) {
+                    if ($RoboJobOut[-1].Contains("%")) {
+                        # Update $percentComplete
+                        $percentComplete = $RoboJobOut[-1].Split('%')[0].Trim()
+                    }
+                }
             }
             # Update progress bar
             Write-Progress -Activity "Downloading [$($wheel[$idx%$wheelCount])]" -Status $StatusMSG -PercentComplete $percentComplete -Id $Id -ParentId $ParentId
