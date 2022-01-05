@@ -23,6 +23,9 @@
             # "PackageName",
             # "PackageName"
         )
-        aspenMedia = @{}
+        aspenMedia = @(
+            #"V14.0.ENG.Enterprise",
+            #"V14.0.ENG.Local"
+        )
     }
 }
