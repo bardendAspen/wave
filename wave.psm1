@@ -706,9 +706,11 @@ function Start-RoboCopy {
             # Check for '%'
             if ($null -ne $RoboJobOut) {
                 if ($null -ne $RoboJobOut[-1]) {
-                    if ($RoboJobOut[-1].Contains("%")) {
-                        # Update $percentComplete
-                        $percentComplete = $RoboJobOut[-1].Split('%')[0].Trim()
+                    if ($RoboJobOut[-1] -is [String]) {
+                        if ($RoboJobOut[-1].Contains("%")) {
+                            # Update $percentComplete
+                            $percentComplete = $RoboJobOut[-1].Split('%')[0].Trim()
+                        }
                     }
                 }
             }
